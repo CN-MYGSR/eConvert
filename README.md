@@ -45,7 +45,7 @@ python assets\main.py
 
 ### 方式一：直接下载现成包
 
-从 [GitHub Releases](https://github.com/{owner}/{repo}/releases) 下载 **eConvert-ffmpeg-win64.zip**，
+从 [GitHub Releases](https://github.com/CN-MYGSR/eConvert/releases) 下载 **eConvert-ffmpeg-win64.zip**，
 解压后把 `ffmpeg-master-latest-win64-gpl` 整个文件夹放到：
 
 ```
