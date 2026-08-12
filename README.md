@@ -109,4 +109,12 @@ pyinstaller main.spec
 
 ## 📄 开源协议
 
-MIT License
+[GPLv3](LICENSE)
+
+本项目基于以下同样采用 GPL 兼容许可的组件：
+
+- **PyQt6** — GPLv3（Qt 的 GPL 组件）
+- **FFmpeg** — GPLv2+（GitHub Release 附带的 `win64-gpl` 构建）
+- **pdf2docx / pydub / MoviePy / Pillow** — MIT / LGPL 兼容许可
+
+因此本项目整体以 **GPLv3** 发布：修改、分发或商用本软件时，需以相同许可（或兼容许可）开源其修改版本。
