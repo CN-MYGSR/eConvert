@@ -1,0 +1,28 @@
+# --- Python ---
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+env/
+
+# --- Build artifacts ---
+build/
+dist/
+*.log
+
+# --- 用户本地配置（勿提交） ---
+settings.json
+
+# --- FFmpeg 体积过大，不纳入 Git（随 GitHub Release 附件分发） ---
+assets/ffmpeg-master-latest-win64-gpl/
+assets/ffmpeg/
+ffmpeg.exe
+ffprobe.exe
+ffplay.exe
+
+# --- 编辑器 / 系统 ---
+.vscode/
+.idea/
+Thumbs.db
+.DS_Store
