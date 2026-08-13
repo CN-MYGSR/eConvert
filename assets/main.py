@@ -4,6 +4,7 @@ import json
 import math
 import os
 import shutil
+import subprocess
 import sys
 import threading
 import traceback
@@ -63,7 +64,7 @@ from PyQt6.QtWidgets import (
     QPushButton, QLabel, QListWidget, QListWidgetItem, QComboBox, QLineEdit,
     QFileDialog, QProgressBar, QFrame, QStackedWidget, QToolButton, QMessageBox,
     QGraphicsDropShadowEffect, QButtonGroup, QAbstractItemView,
-    QCheckBox, QSlider, QScrollArea,
+    QCheckBox, QSlider, QScrollArea, QMenu,
 )
 
 if FFMPEG_READY:
@@ -235,6 +236,12 @@ QSlider#Slider::handle:horizontal {{ width: 16px; height: 16px; margin: -6px 0;
 QSlider#Slider::handle:horizontal:hover {{ background: {P['switch_knob_hover']}; }}
 QScrollArea#SettingsScroll {{ background: transparent; border: none; }}
 QScrollArea#SettingsScroll > QWidget > QWidget {{ background: transparent; }}
+QMenu {{ background-color: {P['card']}; border: 1px solid {P['field_border']};
+        border-radius: 8px; padding: 6px; }}
+QMenu::item {{ padding: 6px 24px; border-radius: 6px; font-size: 12px; color: {P['text']}; }}
+QMenu::item:selected {{ background-color: {P['accent_soft']}; color: {P['text']}; }}
+QMenu::item:disabled {{ color: {P['text_faint']}; }}
+QMenu::separator {{ height: 1px; background: {P['field_border']}; margin: 5px 8px; }}
 """
 
 DEFAULT_SETTINGS = {
@@ -639,6 +646,8 @@ class ConvertPage(QWidget):
         self._list.setMinimumHeight(150)
         self._list.setDragDropMode(QAbstractItemView.DragDropMode.InternalMove)
         self._list.setSelectionMode(QAbstractItemView.SelectionMode.ExtendedSelection)
+        self._list.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
+        self._list.customContextMenuRequested.connect(self._show_context_menu)
         fcl.addWidget(self._list, 1)
 
         row = QHBoxLayout()
@@ -814,9 +823,10 @@ class ConvertPage(QWidget):
         if not rows:
             return
         routes = set()
-        for idx in reversed(sorted(r.index().row() for r in rows)):
-            item = self._list.takeItem(idx)
-            routes.add(item.data(Qt.ItemDataRole.UserRole))
+        for row in reversed(sorted(r.row() for r in rows)):
+            item = self._list.takeItem(row)
+            if item:
+                routes.add(item.data(Qt.ItemDataRole.UserRole))
         self._files = [f for f in self._files if str(f) not in routes]
         self.refresh_count()
 
@@ -825,6 +835,62 @@ class ConvertPage(QWidget):
         self._files.clear()
         self.refresh_count()
         self.set_status("就绪 · 将文件拖入上方区域", grey=True)
+
+    def _selected_paths(self):
+        rows = self._list.selectionModel().selectedRows()
+        paths = []
+        for idx in rows:
+            item = self._list.item(idx.row())
+            if item:
+                paths.append(Path(item.data(Qt.ItemDataRole.UserRole)))
+        return [p for p in paths if p and p.exists()]
+
+    def _show_context_menu(self, pos):
+        index = self._list.indexAt(pos)
+        if index.isValid():
+            item = self._list.itemFromIndex(index)
+            if item and not item.isSelected():
+                self._list.setCurrentItem(item)
+        menu = self._build_context_menu(self._selected_paths())
+        menu.exec(self._list.viewport().mapToGlobal(pos))
+
+    def _build_context_menu(self, paths):
+        menu = QMenu(self)
+        has_items = bool(paths)
+        single = len(paths) == 1
+        act_open = menu.addAction("打开文件")
+        act_open.setEnabled(single)
+        if single:
+            act_open.triggered.connect(
+                lambda: QDesktopServices.openUrl(QUrl.fromLocalFile(str(paths[0]))))
+        act_reveal = menu.addAction("打开所在文件夹")
+        act_reveal.setEnabled(has_items)
+        if has_items:
+            act_reveal.triggered.connect(lambda: self._reveal(paths))
+        act_copy = menu.addAction("复制文件路径")
+        act_copy.setEnabled(has_items)
+        if has_items:
+            act_copy.triggered.connect(lambda: self._copy_paths(paths))
+        menu.addSeparator()
+        act_remove = menu.addAction("移除选中")
+        act_remove.setEnabled(has_items)
+        if has_items:
+            act_remove.triggered.connect(self.remove_selected)
+        act_clear = menu.addAction("清空列表")
+        act_clear.setEnabled(bool(self._files))
+        act_clear.triggered.connect(self.clear_files)
+        return menu
+
+    def _reveal(self, paths):
+        try:
+            for p in paths[:1]:
+                subprocess.Popen(["explorer", "/select,", str(p)])
+        except Exception:
+            QDesktopServices.openUrl(QUrl.fromLocalFile(str(paths[0].parent)))
+
+    def _copy_paths(self, paths):
+        text = "\n".join(str(p) for p in paths)
+        QApplication.clipboard().setText(text)
 
     def refresh_count(self):
         self._count_label.setText(f"共 {len(self._files)} 个文件")
