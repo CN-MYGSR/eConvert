@@ -278,6 +278,47 @@ def save_settings(settings):
         pass
 
 
+RUN_KEY = r"Software\Microsoft\Windows\CurrentVersion\Run"
+RUN_NAME = "eConvert"
+
+
+def startup_command():
+    if getattr(sys, "frozen", False):
+        return f'"{Path(sys.executable)}"'
+    py = Path(sys.executable).with_name("pythonw.exe")
+    if not py.is_file():
+        py = Path(sys.executable)
+    return f'"{py}" "{_BASE / "main.py"}"'
+
+
+def startup_registry(enabled=None):
+    if sys.platform != "win32":
+        return None
+    import winreg
+    try:
+        key = winreg.OpenKey(winreg.HKEY_CURRENT_USER, RUN_KEY, 0,
+                             winreg.KEY_READ | winreg.KEY_SET_VALUE)
+    except OSError:
+        key = winreg.CreateKey(winreg.HKEY_CURRENT_USER, RUN_KEY)
+    try:
+        if enabled is None:
+            try:
+                winreg.QueryValueEx(key, RUN_NAME)
+                return True
+            except OSError:
+                return False
+        if enabled:
+            winreg.SetValueEx(key, RUN_NAME, 0, winreg.REG_SZ, startup_command())
+        else:
+            try:
+                winreg.DeleteValue(key, RUN_NAME)
+            except OSError:
+                pass
+        return bool(enabled)
+    finally:
+        winreg.CloseKey(key)
+
+
 def set_acrylic_windows(hwnd: int, acrylic_on: bool, dark: bool):
     if sys.platform != "win32":
         return
@@ -1039,6 +1080,12 @@ class SettingsPage(QWidget):
         self._dark_switch = self._make_switch(s["dark"],
                                               lambda on: self._set("dark", on, True))
         self._row(lay, "深色模式", "使用深色主题，夜间使用更舒适", self._dark_switch)
+        self._autostart_switch = self._make_switch(
+            startup_registry() is True,
+            lambda on: startup_registry(on))
+        self._row(lay, "开机自启动",
+                  "登录 Windows 后自动启动 eConvert（写入注册表 Run 项）",
+                  self._autostart_switch)
 
         self._section("视频")
         card, lay = self._card()
